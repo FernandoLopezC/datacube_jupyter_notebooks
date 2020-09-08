@@ -76,7 +76,7 @@ class Helpers:
 
     def check(self, north, east, south, west, start, end):
         # need to change this, why are dates being converted to string
-        if str(end) < str(start):
+        if end < start:
             raise ValueError('End date should not be before start date')
 
         if east and west and east < west:
