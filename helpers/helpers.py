@@ -44,7 +44,7 @@ class Helpers:
         ds = Dataset(product=product, 
                      subproduct=subproduct,
                      key_file=self.keyfile)
-
+            
         ds.get_data(start=start, stop=end,
                     latlon=[latitude, longitude])
 
@@ -60,13 +60,22 @@ class Helpers:
             ds = Dataset(product=product, 
                          subproduct=subproduct,
                          key_file=self.keyfile)
-
+            # added this to ensure hours are not passed when needed based on 
+            # frequency of dataset
+            try:
+                if not (ds.frequency < np.timedelta64(1, 'D')) and start.hour>0:
+                    start = start - datetime.timedelta(hours=start.hour)
+                    end = end - datetime.timedelta(hours=end.hour)
+            except TypeError as e:
+                pass
+        
             ds.get_data(start=start, stop=end,
                         region=[north, east, south,west])
 
             return ds.data
 
     def check(self, north, east, south, west, start, end):
+        # need to change this, why are dates being converted to string
         if str(end) < str(start):
             raise ValueError('End date should not be before start date')
 
@@ -217,6 +226,11 @@ class Helpers:
         with self.out:
             clear_output()
             print("Getting data...")
+            
+            # ensuring both dates input are datetimes and not just dates
+            
+            start = datetime.datetime.combine(start,datetime.time(0))
+            end = datetime.datetime.combine(end,datetime.time(0))
 
             # temperature
             list_of_results = self.get_data_from_datacube('era5', 'skt',
@@ -253,7 +267,7 @@ class Helpers:
             plt.show()
 
     def compare_rainfall_products(self, latitude, longitude, start, end):
-
+        # changed this from np.datetime64 to datetime.datetime
         with self.out:
 
             clear_output()
@@ -261,15 +275,15 @@ class Helpers:
 
             p1 = self.get_data_from_datacube('tamsat',
                                              'rfe',
-                                             np.datetime64(start),
-                                             np.datetime64(end),
+                                             datetime.datetime.combine(start,datetime.time(0)),
+                                             datetime.datetime.combine(end,datetime.time(0)),
                                              latitude,
                                              longitude)
 
             p2 = self.get_data_from_datacube('chirps',
                                              'rfe',
-                                             np.datetime64(start),
-                                             np.datetime64(end),
+                                             datetime.datetime.combine(start,datetime.time(0)),
+                                             datetime.datetime.combine(end,datetime.time(0)),
                                              latitude,
                                              longitude)
 
@@ -282,7 +296,8 @@ class Helpers:
             plt.show()
     
     def compare_temperature_subproducts(self, latitude, longitude, start, end):
-
+        # removed conversion to np.datetime64 
+        # can't find usage of this
         with self.out:
 
             clear_output()
@@ -290,15 +305,15 @@ class Helpers:
 
             p1 = self.get_data_from_datacube('era5',
                                              'skt',
-                                             np.datetime64(start),
-                                             np.datetime64(end),
+                                             start,
+                                             end,
                                              latitude,
                                              longitude)
 
             p2 = self.get_data_from_datacube('era5',
                                              't2m',
-                                             np.datetime64(start),
-                                             np.datetime64(end),
+                                             start,
+                                             end,
                                              latitude,
                                              longitude)
 
@@ -312,6 +327,7 @@ class Helpers:
 
     def compare_rainfall_years(self, product, latitude, longitude,
                                year1, year2):
+        # changed use of np.datetime64 to datetime.datetime
 
         with self.out:
 
@@ -323,16 +339,16 @@ class Helpers:
             y1 = self.get_data_from_datacube(
                 product_name,
                 'rfe',
-                np.datetime64(f"{int(year1)}-01-01"),
-                np.datetime64(f"{int(year1)}-12-31"),
+                datetime.datetime(int(year1), 1, 1),
+                datetime.datetime(int(year1), 12, 31),
                 latitude,
                 longitude).groupby('time.dayofyear').mean()
 
             y2 = self.get_data_from_datacube(
                 product_name,
                 'rfe',
-                np.datetime64(f"{int(year2)}-01-01"),
-                np.datetime64(f"{int(year2)}-12-31"),
+                datetime.datetime(int(year2), 1, 1),
+                datetime.datetime(int(year2), 12, 31),
                 latitude,
                 longitude).groupby('time.dayofyear').mean()
 
@@ -346,7 +362,8 @@ class Helpers:
             
     def compare_temperature_years(self, product, latitude, longitude,
                                   year1, year2):
-
+        # changed np.datetime64 to datetime.datetime
+        # can't find any usages of this
         with self.out:
             
             clear_output()
@@ -357,16 +374,16 @@ class Helpers:
             y1 = self.get_data_from_datacube(
                 product_name,
                 'skt',
-                np.datetime64(f"{int(year1)}-01-01"),
-                np.datetime64(f"{int(year1)}-12-31"),
+                datetime.datetime(int(year1), 1, 1),
+                datetime.datetime(int(year1), 12, 31),
                 latitude,
                 longitude).groupby('time.dayofyear').mean()
 
             y2 = self.get_data_from_datacube(
                 product_name,
                 'skt',
-                np.datetime64(f"{int(year2)}-01-01"),
-                np.datetime64(f"{int(year2)}-12-31"),
+                datetime.datetime(int(year2), 1, 1),
+                datetime.datetime(int(year2), 12, 31),
                 latitude,
                 longitude).groupby('time.dayofyear').mean()
 
@@ -380,6 +397,7 @@ class Helpers:
 
     def data_to_csv(self, product, subproduct,
                     latitude, longitude, start, end):
+        # changed usage of np.datetime64 to datetime.datetime
 
         with self.out:
 
@@ -388,15 +406,14 @@ class Helpers:
 
             data = self.get_data_from_datacube(product,
                                                subproduct,
-                                               pd.to_datetime(start),
-                                               pd.to_datetime(end),
+                                               start,
+                                               end,
                                                latitude,
                                                longitude)
 
-            st = pd.to_datetime(start)
-            en = pd.to_datetime(end)
+
             filename = f"{product}_{subproduct}_{latitude}_{longitude}" \
-                       f"_{st.date()}_{en.date()}.csv"
+                       f"_{start}_{end}.csv"
             data.to_dataframe().to_csv(filename)
             localfile = FileLink(filename)
             display(localfile)
@@ -414,12 +431,15 @@ class Helpers:
             print("1/3 Getting data for request year...")
 
             product_name = product.lower()
-
+            
+            # added datetime.datetime.combine catch because if user doesnt change
+            # values of dropdown it still stores hours and minutes so has trouble when comparing
+            # later on
             y1 = self.get_data_from_datacube(
                 product_name,
                 'rfe',
-                np.datetime64(start),
-                np.datetime64(end),
+                datetime.datetime.combine(start,datetime.time(0)),
+                datetime.datetime.combine(end,datetime.time(0)),
                 latitude,
                 longitude).groupby('time.dayofyear').mean()
 
@@ -428,8 +448,8 @@ class Helpers:
             clim = self.get_data_from_datacube(
                 product_name,
                 'rfe',
-                np.datetime64(f"2000-01-01"),
-                np.datetime64(f"2019-12-31"),
+                datetime.datetime(2000, 1, 1),
+                datetime.datetime(2019, 12, 31),
                 latitude,
                 longitude)
 
@@ -472,8 +492,8 @@ class Helpers:
             temp = self.get_data_from_datacube(
                 'era5',
                 'skt',
-                np.datetime64(start),
-                np.datetime64(end+datetime.timedelta(hours=23)),
+                start+datetime.timedelta(hours=0),
+                end+datetime.timedelta(hours=23),
                 latitude,
                 longitude).skt - 273.15
 
@@ -488,25 +508,27 @@ class Helpers:
             plt.show()
 
     def combine_date_hour(self, date, hour):
-        # to get start date and hour
+        # to get start date and hour removed complex string manipulation and just used datetime
+        # functionality to shorten function
         d = date.value
-        x = d.strftime("%Y-%m-%d ")
         h = hour.value
-        if h < 10:
-            y = ("0" + str(h) + ":00:00")
-        else:
-            y = (str(h) + ":00:00")
-        start = "\"" + x + y + "\""
+        z = datetime.datetime.combine(d,datetime.time(int(h)))
+        return z
+#         if h < 10:
+#             y = ("0" + str(h) + ":00:00")
+#         else:
+#             y = (str(h) + ":00:00")
+#         start = "\"" + x + y + "\""
 
-        # to get end date and hour
-        d = date.value
-        x = d.strftime("%Y-%m-%d ")
-        h = hour.value
-        if h < 10:
-            y = ("0" + str(h) + ":00:00")
-        else:
-            y = (str(h) + ":00:00")
-        return "\"" + x + y + "\""
+#         # to get end date and hour
+#         d = date.value
+#         x = d.strftime("%Y-%m-%d ")
+#         h = hour.value
+#         if h < 10:
+#             y = ("0" + str(h) + ":00:00")
+#         else:
+#             y = (str(h) + ":00:00")
+#         return "\"" + x + y + "\""
 
     def compare_two_locations(self, product, subproduct, lat1, lon1,
                               lat2, lon2, start_date, start_hour,
@@ -523,17 +545,17 @@ class Helpers:
             end = Helpers.combine_date_hour(self, end_date, end_hour)
 
             fig, ax1 = plt.subplots(figsize=(8, 4))
-
+            
             #latlon1
-            list_of_results = Helpers.get_data_from_datacube(
-                product, subproduct, start, end, lat1, lon1,)
+            # added self because that argument was missing
+            list_of_results = Helpers.get_data_from_datacube(self,product, subproduct, start, end, lat1, lon1)
 
             x = list_of_results
             x.__getitem__(subproduct).plot(label=(lat1, lon1))
 
             #latlon2
             list_of_results = Helpers.get_data_from_datacube(
-                product, subproduct, start, end, lat2, lon2,)
+                self, product, subproduct, start, end, lat2, lon2,)
 
             y = list_of_results
             y.__getitem__(subproduct).plot(label=(lat2, lon2))
